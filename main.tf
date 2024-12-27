@@ -119,27 +119,35 @@ resource "aws_subnet" "sn-rad-db-B" {
 
 resource "aws_security_group" "sg-rad-web" {
 
+  name = "Allow All Traffic In and Out"
+  description = "Allow All Traffic In and Out"
   vpc_id = aws_vpc.vpc-rad.id
-  name = "sg-rad-web"
-
-  ingress {
-    from_port = 0
-    to_port = 0
-    protocol = -1
-    self = true
-  }
-
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = -1
-    cidr_blocks = [ "0.0.0.0/0" ]
-  }
 
   tags = {
     Name = "sg-rad-web"
   }
-    
+  
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow-all-traffic-in" {
+  
+  security_group_id = aws_security_group.sg-rad-web.id
+  cidr_ipv4 = "0.0.0.0/0"
+  from_port = "0"
+  ip_protocol = "-1"
+  to_port = "0"
+  
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow-all-traffic-out" {
+
+  security_group_id = aws_security_group.sg-rad-web.id
+  cidr_ipv4 = "0.0.0.0/0"
+  from_port = "0"
+  ip_protocol = "-1"
+  to_port = "0"
+
+}
 
 # NAT Gateway AZ-A
 
@@ -309,7 +317,14 @@ resource "aws_route" "r-rad-privet-B" {
 resource "aws_eks_cluster" "eks-rad" {
 
   name = "eks-rad"
+
+  access_config {
+    authentication_mode = "API"
+  }
+
   role_arn = aws_iam_role.iam-rad-eks-cp.arn
+  version = "1.31"
+
   vpc_config {
     subnet_ids = [
       aws_subnet.sn-rad-app-A.id,
@@ -419,10 +434,10 @@ resource "aws_eks_node_group" "eks-rad-ng-A" {
   node_group_name = "eks-rad-ng-A"
   node_role_arn = aws_iam_role.iam-rad-eks-ng.arn
   subnet_ids = [
-    aws_subnet.sn-rad-app-A.id
+    aws_subnet.sn-rad-app-A.id, aws_subnet.sn-rad-app-B.id
   ]
   scaling_config {
-    desired_size = 1
+    desired_size = 2
     max_size = 3
     min_size = 1
   }
@@ -432,31 +447,6 @@ resource "aws_eks_node_group" "eks-rad-ng-A" {
 
   tags = {
     Name = "eks-rad-ng-A"
-  }
-
-}
-
-# EKS Node Group AZ-B
-
-resource "aws_eks_node_group" "eks-rad-ng-B" {
-
-  cluster_name = aws_eks_cluster.eks-rad.name
-  node_group_name = "eks-rad-ng-B"
-  node_role_arn = aws_iam_role.iam-rad-eks-ng.arn
-  subnet_ids = [
-    aws_subnet.sn-rad-app-B.id
-  ]
-  scaling_config {
-    desired_size = 1
-    max_size = 3
-    min_size = 1
-  }
-  depends_on = [
-    aws_eks_cluster.eks-rad
-  ]
-
-  tags = {
-    Name = "eks-rad-ng-B"
   }
 
 }
