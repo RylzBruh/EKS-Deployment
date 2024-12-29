@@ -320,6 +320,7 @@ resource "aws_eks_cluster" "eks-rad" {
 
   access_config {
     authentication_mode = "API"
+    bootstrap_cluster_creator_admin_permissions = true
   }
 
   role_arn = aws_iam_role.iam-rad-eks-cp.arn
@@ -339,6 +340,23 @@ resource "aws_eks_cluster" "eks-rad" {
   tags = {
     Name = "eks-rad"
   }
+
+}
+
+resource "aws_eks_addon" "pod-identity" {
+
+  cluster_name = aws_eks_cluster.eks-rad.name
+  addon_name = "vpc-cni"
+  addon_version = "v1.19.0-eksbuild.1"
+  resolve_conflicts_on_create = "OVERWRITE"
+
+  tags = {
+    Name = "pod-identity"
+  }
+  
+  depends_on = [ 
+    aws_eks_cluster.eks-rad
+  ]
 
 }
 
@@ -426,7 +444,16 @@ resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
   
 }
 
-# EKS Node Group AZ-A
+# Define the policy for the worker nodes to access the ELB and create them with a loadbalancer service
+
+resource "aws_iam_role_policy_attachment" "ellastic_load_balancer_policy" { 
+
+  role = aws_iam_role.iam-rad-eks-ng.name
+  policy_arn = "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
+  
+}
+
+# EKS Node Group AZ-A and AZ-B
 
 resource "aws_eks_node_group" "eks-rad-ng-A" {
 
